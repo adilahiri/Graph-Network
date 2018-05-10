@@ -4,6 +4,8 @@ require(xlsx)
 source('C:/Users/adi44/Desktop/CodeHouse/Graph-Network/WRKY_Transcription_Factor/DATASET/minmax_normalize.R')
 source('C:/Users/adi44/Desktop/CodeHouse/Graph-Network/WRKY_Transcription_Factor/DATASET/assign_value.R')
 source('C:/Users/adi44/Desktop/CodeHouse/Graph-Network/WRKY_Transcription_Factor/DATASET/calc_shape_param.R')
+source('C:/Users/adi44/Desktop/CodeHouse/Graph-Network/WRKY_Transcription_Factor/DATASET/binarize_mean_median.R')
+
 library(Binarize)
 set.seed(101)
 data_1<- as.matrix(read.xlsx("GSE46365.xlsx",1))
@@ -14,11 +16,13 @@ data_1_norm<- apply(data_1,2,minmax_normalize)
 data_2_norm<- apply(data_2,2,minmax_normalize)
 data_3_norm<- apply(data_3,2,minmax_normalize)
 
+#data_1_bin <- as.matrix(binarizeMatrix(data_1_norm,method="kMean"))[,1:4]
+#data_2_bin <- as.matrix(binarizeMatrix(data_2_norm,method="kMeans"))[,1:4]
+#data_3_bin <- as.matrix(binarizeMatrix(data_3_norm,method="kMeans"))[,1:4]
 
-
-data_1_bin <- as.matrix(binarizeMatrix(data_1_norm,method="BASCA"))[,1:4]
-data_2_bin <- as.matrix(binarizeMatrix(data_2_norm,method="BASCA"))[,1:4]
-data_3_bin <- as.matrix(binarizeMatrix(data_3_norm,method="BASCA"))[,1:4]
+data_1_bin <- binarize_mean_median(data_1_norm,method="median")
+data_2_bin <-binarize_mean_median(data_2_norm,method="median")
+data_3_bin <- binarize_mean_median(data_3_norm,method="median")
 
 data_set <- rbind(data_1_bin,data_2_bin,data_3_bin)
 
@@ -28,27 +32,48 @@ WRKY_18_40<-vector()
 WRKY_18_18 <-vector()
 WRKY_40_40<-vector()
 WRKY_60_60<-vector()
-value<-9
 for (iter in 1:nrow(data_set)){
-  if(data_set[iter,2]==1 & data_set[iter,1] ==1)
+  if(sum(data_set[iter,3],data_set[iter,2],data_set[iter,1])==3)
+    WRKY_18_40[iter]<-1
+  else if (sum(data_set[iter,3],data_set[iter,2],data_set[iter,1])==0)
+    WRKY_18_40[iter]<-0
+  else if (sum(data_set[iter,3],data_set[iter,2],data_set[iter,1])==2)
     WRKY_18_40[iter]<-assign_value(1)
-  else
+  else if (sum(data_set[iter,3],data_set[iter,2],data_set[iter,1])==1)
     WRKY_18_40[iter]<-assign_value(0)
   
-  if(data_set[iter,2]==1)
-    WRKY_18_18[iter]<-assign_value(1)
-  else
-    WRKY_18_18[iter]<-assign_value(0)
+  # WRKY18-18
+  if(sum(data_set[iter,2],data_set[iter,4])==0)
+    WRKY_18_18[iter]<-0
+  else if (sum(data_set[iter,2],data_set[iter,4]==2))
+    WRKY_18_18[iter]<-1
+  else if (data_set[iter,2]==0 & data_set[iter,4]==1)
+    WRKY_18_18[iter] <- assign_value(0)
+  else if (data_set[iter,2]==1 & data_set[iter,4]==0)
+    WRKY_18_18[iter] <- assign_value(1)
   
-  if(data_set[iter,1]==1)
-    WRKY_40_40[iter]<-assign_value(1)
-  else
+  
+  
+  #WRKY 40-40
+  if(data_set[iter,1] ==0 & data_set[iter,4]==0)
     WRKY_40_40[iter]<-assign_value(0)
   
+  else if(data_set[iter,1]==1 & data_set[iter,4]==1)
+    WRKY_40_40[iter]<-assign_value(1)
   
-  if(data_set[iter,3]==1)
+  else if(data_set[iter,1]==1 & data_set[iter,4]==0)
+    WRKY_40_40[iter]<-1
+  else if(data_set[iter,1]==0 & data_set[iter,4]==1)
+    WRKY_40_40[iter]<-0
+  
+  ## WRKY 60-60
+  if(sum(data_set[iter,3],data_set[iter,4])==0)
+    WRKY_60_60[iter]<-0
+  else if(sum(data_set[iter,3],data_set[iter,4])==2)
+    WRKY_60_60[iter]<-1
+  else if(data_set[iter,3]==1 & data_set[iter,4]==0)
     WRKY_60_60[iter]<-assign_value(1)
-  else
+  else if(data_set[iter,3]==0 & data_set[iter,4]==1)
     WRKY_60_60[iter]<-assign_value(0)
   
 }
@@ -60,6 +85,21 @@ Synth_Data <- cbind(data_set[,2],data_set[,1],WRKY_18_40,WRKY_18_18,WRKY_40_40,d
 rownames(Synth_Data)<-NULL
 colnames(Synth_Data)<-c("WRKY18","WRKY40","WRKY_18_40","WRKY_18_18","WRKY_40_40","WRKY60","WRKY_60_60","RD29A")
 write.csv(Synth_Data,file="Synthetic_Data.csv")
+
+# Plot for activation and inhibition
+count1<-list()
+for(iter in 1:8){
+  count1[[iter]]<- table(Synth_Data[,iter])
+}
+c1<-unlist(count1)
+c2<-matrix(c1,ncol=2,byrow=TRUE)
+colnames(c2)<-c("Inhibited","Activated")
+rownames(c2)<-c("WRKY18","WRKY40","WRKY18-40","WRKY18-18","WRKY40-40","WRKY60","WRKY60-60","RD29A")
+
+
+barplot(t(c2),ylim =c(0,200),main="Activation vs Inhibition",ylab="count",col=c("black","red"))
+legend("topleft",c("Inhibited","Activated"),fill=c("black","red"))
+
 
 
 ### Estimate the Shape parameters and the expected values for each nodes
@@ -96,8 +136,9 @@ for (iter_node in 1:Nodes){
 
 shape_mat <-shape_mat[-1,]
 
+Expected_Values <- signif(cbind(shape_mat[,1]/(shape_mat[,1]+shape_mat[,2])),digits = 3)
 
-
+shape_mat2<-cbind(shape_mat,100*Expected_Values,100*(1-Expected_Values))
 
 
 
