@@ -1,5 +1,9 @@
-binarize_mean_median <- function (Mat_Data){
+binarize_mean_median <- function (Mat_Data,method='median'){
+  
+  if(method=="mean")
   means<-apply(Mat_Data,2,mean)
+  else
+    means<-apply(Mat_Data,2,median)
   
   for(iter in 1:ncol(Mat_Data)){
     
